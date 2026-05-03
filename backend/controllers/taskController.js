@@ -1,4 +1,6 @@
 import Task from "../models/Task.js";
+import Notification from "../models/Notification.js";
+import { io, onlineUsers } from "../server.js";
 
 // ==============================
 // CREATE TASK (Admin)
@@ -11,14 +13,30 @@ export const createTask = async (req, res) => {
       return res.status(400).json({ message: "All fields required" });
     }
 
- const task = await Task.create({
-  title,
-  description,
-  projectId,
-  assignedTo,
-  dueDate,
-  status: "Pending", // explicit
-});
+    const task = await Task.create({
+      title,
+      description,
+      projectId,
+      assignedTo,
+      dueDate,
+      status: "Pending",
+    });
+
+    // 🔔 SAVE NOTIFICATION
+    await Notification.create({
+      user: assignedTo,
+      message: `You got a new task: ${title}`,
+      type: "TASK_ASSIGNED",
+    });
+
+    // 🔥 REAL-TIME NOTIFICATION
+    const socketId = onlineUsers.get(assignedTo.toString());
+
+    if (socketId) {
+      io.to(socketId).emit("notification", {
+        message: `You got a new task: ${title}`,
+      });
+    }
 
     res.status(201).json(task);
   } catch (error) {
@@ -36,7 +54,7 @@ export const getTasks = async (req, res) => {
 
     let query = {};
 
-    // Filter by project if provided
+    // Filter by project
     if (projectId) {
       query.projectId = projectId;
     }
@@ -70,7 +88,7 @@ export const updateTask = async (req, res) => {
       return res.status(404).json({ message: "Task not found" });
     }
 
-    // Only assigned user or admin can update
+    // Only assigned user or admin
     if (
       req.user.role !== "Admin" &&
       task.assignedTo.toString() !== req.user.id
@@ -78,9 +96,32 @@ export const updateTask = async (req, res) => {
       return res.status(403).json({ message: "Not authorized" });
     }
 
+    // 🔒 Save old status to compare
+    const oldStatus = task.status;
+
+    // Update status
     task.status = status || task.status;
 
     const updatedTask = await task.save();
+
+    // 🔔 ONLY SEND NOTIFICATION IF STATUS CHANGED
+    if (status && status !== oldStatus) {
+      // SAVE NOTIFICATION
+      await Notification.create({
+        user: task.assignedTo,
+        message: `Task "${task.title}" updated to ${task.status}`,
+        type: "TASK_UPDATED",
+      });
+
+      // 🔥 REAL-TIME
+      const socketId = onlineUsers.get(task.assignedTo.toString());
+
+      if (socketId) {
+        io.to(socketId).emit("notification", {
+          message: `Task "${task.title}" updated to ${task.status}`,
+        });
+      }
+    }
 
     const populatedTask = await Task.findById(updatedTask._id)
       .populate("assignedTo", "name email")

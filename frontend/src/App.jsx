@@ -1,9 +1,17 @@
 import AppRoutes from "./routes";
-import { useContext } from "react";
+import { useContext, useEffect } from "react";
 import { AuthContext } from "./context/AuthContext";
+import socket from "./socket";
 
 function App() {
-  const { loading } = useContext(AuthContext);
+  const { loading, user } = useContext(AuthContext);
+
+  // 🔥 Register user with socket (REAL-TIME)
+  useEffect(() => {
+    if (user?._id) {
+      socket.emit("register", user._id);
+    }
+  }, [user]);
 
   // ⏳ Prevent rendering before auth loads
   if (loading) {
