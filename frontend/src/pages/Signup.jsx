@@ -33,7 +33,8 @@ const Signup = () => {
     try {
       setLoading(true);
 
-      const res = await API.post("/auth/signup", form);
+      
+      const res = await API.post("/api/auth/signup", form);
 
       // Save token
       localStorage.setItem("token", res.data.token);
