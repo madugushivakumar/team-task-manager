@@ -28,7 +28,7 @@ app.use(express.json());
 // CORS
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: "https://team-task-manager-pt8j.vercel.app",
     credentials: true,
   })
 );
