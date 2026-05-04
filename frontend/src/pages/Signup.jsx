@@ -11,7 +11,7 @@ const Signup = () => {
     name: "",
     email: "",
     password: "",
-    role: "Member", // default role
+    role: "Member",
   });
 
   const [loading, setLoading] = useState(false);
@@ -33,8 +33,8 @@ const Signup = () => {
     try {
       setLoading(true);
 
-      
-      const res = await API.post("/api/auth/signup", form);
+      // ✅ FIXED (removed /api)
+      const res = await API.post("/auth/signup", form);
 
       // Save token
       localStorage.setItem("token", res.data.token);
@@ -90,7 +90,6 @@ const Signup = () => {
           style={styles.input}
         />
 
-        {/* Role Selection */}
         <select
           name="role"
           value={form.role}

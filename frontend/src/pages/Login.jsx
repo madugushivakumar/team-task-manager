@@ -31,7 +31,8 @@ const Login = () => {
     try {
       setLoading(true);
 
-      const res = await API.post("/api/auth/login", form);
+      // ✅ FIXED (removed /api)
+      const res = await API.post("/auth/login", form);
 
       // Save token
       localStorage.setItem("token", res.data.token);
