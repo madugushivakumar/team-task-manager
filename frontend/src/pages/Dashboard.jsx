@@ -3,6 +3,7 @@ import API from "../api/axios";
 import Navbar from "../components/Navbar";
 import Sidebar from "../components/Sidebar";
 import TaskCard from "../components/TaskCard";
+import SkeletonLoader from "../components/SkeletonLoader";
 
 const Dashboard = () => {
   const [tasks, setTasks] = useState([]);
@@ -37,6 +38,10 @@ const Dashboard = () => {
       t.status !== "Completed"
   ).length;
 
+  // 🔥 Progress %
+  const progress =
+    total === 0 ? 0 : Math.round((completed / total) * 100);
+
   // Handle task update
   const handleUpdate = (updatedTask) => {
     setTasks(prev =>
@@ -52,7 +57,7 @@ const Dashboard = () => {
         <Sidebar />
 
         <div style={styles.main}>
-          <h2 style={styles.heading}>Dashboard</h2>
+          <h2 style={styles.heading}>📊 Dashboard</h2>
 
           {loading ? (
             <p>Loading...</p>
@@ -64,9 +69,21 @@ const Dashboard = () => {
                 <div style={styles.card}>✅ Completed: {completed}</div>
                 <div style={styles.card}>⏳ Pending: {pending}</div>
                 <div style={styles.card}>🚧 In Progress: {inProgress}</div>
-                <div style={styles.overdueCard}>
-                  ⚠ Overdue: {overdue}
+                <div style={styles.overdueCard}>⚠ Overdue: {overdue}</div>
+              </div>
+
+              {/* 🔥 Progress Bar */}
+              <div style={styles.progressSection}>
+                <h3>Project Progress</h3>
+                <div style={styles.progressBar}>
+                  <div
+                    style={{
+                      ...styles.progressFill,
+                      width: `${progress}%`,
+                    }}
+                  />
                 </div>
+                <p>{progress}% completed</p>
               </div>
 
               {/* Task List */}
@@ -131,5 +148,21 @@ const styles = {
     padding: "12px",
     borderRadius: "8px",
     minWidth: "150px",
+  },
+
+  // 🔥 NEW STYLES
+  progressSection: {
+    marginTop: "25px",
+  },
+  progressBar: {
+    height: "20px",
+    backgroundColor: "#334155",
+    borderRadius: "10px",
+    overflow: "hidden",
+    marginTop: "10px",
+  },
+  progressFill: {
+    height: "100%",
+    backgroundColor: "#22c55e",
   },
 };

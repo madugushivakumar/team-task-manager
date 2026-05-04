@@ -1,6 +1,8 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useContext } from "react";
 import { AuthContext } from "./context/AuthContext";
+import Home from "./pages/Home";
+
 
 // Pages
 import Login from "./pages/Login";
@@ -8,6 +10,7 @@ import Signup from "./pages/Signup";
 import Dashboard from "./pages/Dashboard";
 import ProjectPage from "./pages/ProjectPage";
 import TaskPage from "./pages/TaskPage";
+
 
 // ==============================
 // 🔐 PROTECTED ROUTE COMPONENT
@@ -35,8 +38,10 @@ const AppRoutes = () => {
   return (
     <Routes>
       {/* Public Routes */}
-      <Route path="/" element={<Login />} />
+        <Route path="/" element={<Home />} />   {/* ✅ NEW */}
+      <Route path="/login" element={<Login />} /> {/* ✅ NEW */}
       <Route path="/signup" element={<Signup />} />
+      
 
       {/* Protected Routes */}
       <Route
