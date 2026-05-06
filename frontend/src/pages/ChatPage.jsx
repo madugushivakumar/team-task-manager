@@ -1,176 +1,580 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { motion } from "framer-motion";
+import EmojiPicker from "emoji-picker-react";
+
+import {
+  FaPaperPlane,
+  FaSmile,
+  FaPhone,
+  FaVideo,
+  FaSearch,
+  FaPaperclip,
+  FaMoon,
+  FaSun,
+  FaUserPlus,
+  FaMicrophone,
+} from "react-icons/fa";
+
 import API from "../api/axios";
-import Navbar from "../components/Navbar";
-import Sidebar from "../components/Sidebar";
-import Chat from "../components/Chat";
+import socket from "../socket";
 
 const ChatPage = () => {
-
   // ==============================
   // STATES
   // ==============================
-  const [members, setMembers] = useState([]);
+
+  const [messages, setMessages] = useState([]);
+  const [text, setText] = useState("");
+  const [typing, setTyping] = useState("");
+  const [search, setSearch] = useState("");
+
+  const [darkMode, setDarkMode] = useState(true);
+
+  const [showEmoji, setShowEmoji] = useState(false);
+
+  const [teamMembers, setTeamMembers] = useState([]);
+
+  const [newMember, setNewMember] = useState("");
+
+  const [recording, setRecording] = useState(false);
+
+  const messagesEndRef = useRef(null);
+
+  const user = JSON.parse(localStorage.getItem("user"));
 
   // ==============================
-  // CURRENT USER
+  // LOAD MESSAGES
   // ==============================
-  const user =
-    JSON.parse(localStorage.getItem("user")) || null;
 
-  // ==============================
-  // LOAD TEAM MEMBERS
-  // ==============================
   useEffect(() => {
-
-    const fetchUsers = async () => {
-
+    const loadMessages = async () => {
       try {
-
-        const res = await API.get("/users");
-
-        setMembers(res.data);
-
+        const res = await API.get("/messages/global-chat");
+        setMessages(res.data);
       } catch (error) {
-
-        console.error(
-          "Fetch users error:",
-          error
-        );
+        console.error(error);
       }
     };
 
-    fetchUsers();
-
+    loadMessages();
   }, []);
 
+  // ==============================
+  // SOCKET EVENTS
+  // ==============================
+
+  useEffect(() => {
+    socket.emit("joinProject", "global-chat");
+
+    socket.on("receiveMessage", (msg) => {
+      setMessages((prev) => [...prev, msg]);
+    });
+
+    socket.on("userTyping", (name) => {
+      setTyping(`${name} is typing...`);
+    });
+
+    socket.on("userStopTyping", () => {
+      setTyping("");
+    });
+
+    return () => {
+      socket.off("receiveMessage");
+      socket.off("userTyping");
+      socket.off("userStopTyping");
+    };
+  }, []);
+
+  // ==============================
+  // AUTO SCROLL
+  // ==============================
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({
+      behavior: "smooth",
+    });
+  }, [messages]);
+
+  // ==============================
+  // SEND MESSAGE
+  // ==============================
+
+  const sendMessage = () => {
+    if (!text.trim()) return;
+
+    socket.emit("sendMessage", {
+      senderId: user?._id,
+      projectId: "global-chat",
+      content: text,
+    });
+
+    setText("");
+    setShowEmoji(false);
+  };
+
+  // ==============================
+  // EMOJI
+  // ==============================
+
+  const onEmojiClick = (emojiData) => {
+    setText((prev) => prev + emojiData.emoji);
+  };
+
+  // ==============================
+  // FILE UPLOAD
+  // ==============================
+
+  const handleFileUpload = async (e) => {
+    const file = e.target.files[0];
+
+    if (!file) return;
+
+    const formData = new FormData();
+
+    formData.append("file", file);
+
+    try {
+      const res = await API.post(
+        "/upload",
+        formData,
+        {
+          headers: {
+            "Content-Type":
+              "multipart/form-data",
+          },
+        }
+      );
+
+      socket.emit("sendMessage", {
+        senderId: user?._id,
+        projectId: "global-chat",
+        content: res.data.fileUrl,
+      });
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // ==============================
+  // ADD TEAM MEMBER
+  // ==============================
+
+  const addTeamMember = () => {
+    if (!newMember.trim()) return;
+
+    const member = {
+      id: Date.now(),
+      name: newMember,
+    };
+
+    setTeamMembers((prev) => [...prev, member]);
+
+    setNewMember("");
+  };
+
+  // ==============================
+  // VOICE NOTE
+  // ==============================
+
+  const toggleRecording = () => {
+    setRecording(!recording);
+
+    setTimeout(() => {
+      setRecording(false);
+    }, 3000);
+  };
+
+  // ==============================
+  // FILTER MEMBERS
+  // ==============================
+
+  const filteredMembers = teamMembers.filter(
+    (member) =>
+      member.name
+        .toLowerCase()
+        .includes(search.toLowerCase())
+  );
+
   return (
-    <>
-      <Navbar />
+    <div
+      style={{
+        ...styles.container,
 
-      <div style={styles.container}>
+        background: darkMode
+          ? "#020617"
+          : "#f1f5f9",
 
-        {/* SIDEBAR */}
-        <Sidebar />
+        color: darkMode
+          ? "white"
+          : "#0f172a",
+      }}
+    >
+      {/* ========================= */}
+      {/* SIDEBAR */}
+      {/* ========================= */}
 
-        {/* MAIN */}
-        <div style={styles.main}>
+      <motion.div
+        initial={{ x: -50, opacity: 0 }}
+        animate={{ x: 0, opacity: 1 }}
+        style={{
+          ...styles.sidebar,
 
-          <h1 style={styles.heading}>
-            💬 Team Chat
-          </h1>
+          background: darkMode
+            ? "#1e293b"
+            : "white",
+        }}
+      >
+        {/* TOP */}
 
-          <div style={styles.chatLayout}>
+        <div style={styles.sidebarTop}>
+          <h2>👥 Team</h2>
 
-            {/* ==============================
-                TEAM MEMBERS
-            ============================== */}
-            <div style={styles.membersBox}>
-
-              <h3 style={styles.memberTitle}>
-                👥 Team Members
-              </h3>
-
-              {members.length === 0 ? (
-
-                <p>No members found</p>
-
-              ) : (
-
-                members.map((member) => (
-
-                  <div
-                    key={member._id}
-                    style={styles.memberCard}
-                  >
-
-                    <div>
-
-                      <h4 style={styles.memberName}>
-                        {member.name}
-                      </h4>
-
-                      <p style={styles.memberRole}>
-                        {member.role}
-                      </p>
-
-                    </div>
-
-                    {/* ONLINE DOT */}
-                    <span style={styles.onlineDot}>
-                      ●
-                    </span>
-
-                  </div>
-                ))
-              )}
-
-            </div>
-
-            {/* ==============================
-                CHAT SECTION
-            ============================== */}
-            <div style={styles.chatSection}>
-
-              <Chat
-                projectId="global-chat"
-                user={user}
-              />
-
-            </div>
-
-          </div>
-
+          <button
+            style={styles.themeBtn}
+            onClick={() =>
+              setDarkMode(!darkMode)
+            }
+          >
+            {darkMode ? (
+              <FaSun />
+            ) : (
+              <FaMoon />
+            )}
+          </button>
         </div>
 
-      </div>
-    </>
+        {/* SEARCH */}
+
+        <div style={styles.searchBox}>
+          <FaSearch />
+
+          <input
+            type="text"
+            placeholder="Search member..."
+            value={search}
+            onChange={(e) =>
+              setSearch(e.target.value)
+            }
+            style={styles.searchInput}
+          />
+        </div>
+
+        {/* ADD MEMBER */}
+
+        <div style={styles.addMemberBox}>
+          <input
+            type="text"
+            placeholder="Add team member..."
+            value={newMember}
+            onChange={(e) =>
+              setNewMember(e.target.value)
+            }
+            style={styles.addInput}
+          />
+
+          <button
+            style={styles.addBtn}
+            onClick={addTeamMember}
+          >
+            <FaUserPlus />
+          </button>
+        </div>
+
+        {/* MEMBER LIST */}
+
+        <div style={styles.memberList}>
+          {filteredMembers.length === 0 ? (
+            <p style={{ color: "#94a3b8" }}>
+              No team members added
+            </p>
+          ) : (
+            filteredMembers.map((member) => (
+              <motion.div
+                whileHover={{
+                  scale: 1.03,
+                }}
+                key={member.id}
+                style={styles.memberCard}
+              >
+                <div>
+                  <h3>{member.name}</h3>
+
+                  <p>Online</p>
+                </div>
+
+                <div style={styles.onlineDot} />
+              </motion.div>
+            ))
+          )}
+        </div>
+      </motion.div>
+
+      {/* ========================= */}
+      {/* CHAT SECTION */}
+      {/* ========================= */}
+
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        style={{
+          ...styles.chatSection,
+
+          background: darkMode
+            ? "#1e293b"
+            : "white",
+        }}
+      >
+        {/* TOP */}
+
+        <div style={styles.chatTop}>
+          <div>
+            <h2>💬 Team Chat</h2>
+
+            <p style={{ color: "#94a3b8" }}>
+              Real-time collaboration
+            </p>
+          </div>
+
+          {/* CALL BUTTONS */}
+
+          <div style={styles.callButtons}>
+            <button style={styles.iconBtn}>
+              <FaPhone />
+            </button>
+
+            <button style={styles.iconBtn}>
+              <FaVideo />
+            </button>
+          </div>
+        </div>
+
+        {/* CHAT AREA */}
+
+        <div style={styles.messages}>
+          {messages.map((msg, index) => (
+            <motion.div
+              key={msg._id || index}
+              initial={{
+                opacity: 0,
+                y: 10,
+              }}
+              animate={{
+                opacity: 1,
+                y: 0,
+              }}
+              style={{
+                ...styles.message,
+
+                alignSelf:
+                  msg.sender?._id === user?._id
+                    ? "flex-end"
+                    : "flex-start",
+
+                background:
+                  msg.sender?._id === user?._id
+                    ? "#2563eb"
+                    : "#0f172a",
+              }}
+            >
+              <strong>
+                {msg.sender?.name || "User"}
+              </strong>
+
+              <p>{msg.content}</p>
+            </motion.div>
+          ))}
+
+          {/* TYPING */}
+
+          {typing && (
+            <p style={styles.typing}>
+              {typing}
+            </p>
+          )}
+
+          <div ref={messagesEndRef} />
+        </div>
+
+        {/* EMOJI */}
+
+        {showEmoji && (
+          <div style={styles.emojiBox}>
+            <EmojiPicker
+              onEmojiClick={onEmojiClick}
+            />
+          </div>
+        )}
+
+        {/* INPUT AREA */}
+
+        <div style={styles.inputContainer}>
+          {/* FILE */}
+
+          <label style={styles.attachBtn}>
+            <FaPaperclip />
+
+            <input
+              type="file"
+              hidden
+              onChange={handleFileUpload}
+            />
+          </label>
+
+          {/* EMOJI */}
+
+          <button
+            style={styles.attachBtn}
+            onClick={() =>
+              setShowEmoji(!showEmoji)
+            }
+          >
+            <FaSmile />
+          </button>
+
+          {/* VOICE */}
+
+          <button
+            style={{
+              ...styles.attachBtn,
+
+              background: recording
+                ? "#dc2626"
+                : "#0f172a",
+            }}
+            onClick={toggleRecording}
+          >
+            <FaMicrophone />
+          </button>
+
+          {/* INPUT */}
+
+          <input
+            type="text"
+            placeholder="Type message..."
+            value={text}
+            onChange={(e) => {
+              setText(e.target.value);
+
+              socket.emit("typing", {
+                projectId: "global-chat",
+                user: user?.name,
+              });
+
+              setTimeout(() => {
+                socket.emit(
+                  "stopTyping",
+                  {
+                    projectId:
+                      "global-chat",
+                  }
+                );
+              }, 1000);
+            }}
+            style={styles.input}
+          />
+
+          {/* SEND */}
+
+          <motion.button
+            whileTap={{ scale: 0.9 }}
+            onClick={sendMessage}
+            style={styles.sendBtn}
+          >
+            <FaPaperPlane />
+          </motion.button>
+        </div>
+      </motion.div>
+    </div>
   );
 };
 
 export default ChatPage;
 
-/* ==================================
-   STYLES
-================================== */
+// ======================================
+// STYLES
+// ======================================
 
 const styles = {
-
   container: {
     display: "flex",
-  },
-
-  main: {
-    flex: 1,
-    minHeight: "100vh",
-    background: "#020617",
-    color: "white",
+    gap: "20px",
+    height: "100vh",
     padding: "20px",
   },
 
-  heading: {
+  sidebar: {
+    width: "320px",
+    borderRadius: "20px",
+    padding: "20px",
+    overflow: "hidden",
+  },
+
+  sidebarTop: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: "20px",
   },
 
-  chatLayout: {
-    display: "grid",
-    gridTemplateColumns: "300px 1fr",
-    gap: "20px",
+  themeBtn: {
+    background: "#2563eb",
+    border: "none",
+    color: "white",
+    padding: "10px",
+    borderRadius: "10px",
+    cursor: "pointer",
   },
 
-  /* ==============================
-     MEMBERS
-  ============================== */
-
-  membersBox: {
-    background: "#1e293b",
+  searchBox: {
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+    background: "#0f172a",
+    padding: "12px",
     borderRadius: "12px",
-    padding: "20px",
-    height: "80vh",
-    overflowY: "auto",
+    marginBottom: "15px",
+    color: "white",
   },
 
-  memberTitle: {
-    marginBottom: "15px",
+  searchInput: {
+    background: "transparent",
+    border: "none",
+    color: "white",
+    width: "100%",
+    outline: "none",
+  },
+
+  addMemberBox: {
+    display: "flex",
+    gap: "10px",
+    marginBottom: "20px",
+  },
+
+  addInput: {
+    flex: 1,
+    padding: "12px",
+    borderRadius: "12px",
+    border: "1px solid #334155",
+    background: "#0f172a",
+    color: "white",
+    outline: "none",
+  },
+
+  addBtn: {
+    padding: "12px",
+    border: "none",
+    borderRadius: "12px",
+    background: "#22c55e",
+    color: "white",
+    cursor: "pointer",
+  },
+
+  memberList: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "15px",
+    overflowY: "auto",
+    height: "70vh",
   },
 
   memberCard: {
@@ -178,37 +582,105 @@ const styles = {
     justifyContent: "space-between",
     alignItems: "center",
     background: "#0f172a",
-    padding: "12px",
-    borderRadius: "10px",
-    marginBottom: "12px",
-  },
-
-  memberName: {
-    margin: 0,
-    fontSize: "15px",
-  },
-
-  memberRole: {
-    margin: "5px 0 0",
-    opacity: 0.7,
-    fontSize: "12px",
+    padding: "15px",
+    borderRadius: "15px",
   },
 
   onlineDot: {
-    color: "#22c55e",
-    fontSize: "18px",
+    width: "12px",
+    height: "12px",
+    borderRadius: "50%",
+    background: "#22c55e",
   },
 
-  /* ==============================
-     CHAT
-  ============================== */
-
   chatSection: {
-    background: "#1e293b",
-    borderRadius: "12px",
-    padding: "20px",
-    height: "80vh",
+    flex: 1,
+    borderRadius: "20px",
     display: "flex",
     flexDirection: "column",
+    padding: "20px",
+  },
+
+  chatTop: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: "20px",
+  },
+
+  callButtons: {
+    display: "flex",
+    gap: "10px",
+  },
+
+  iconBtn: {
+    background: "#2563eb",
+    border: "none",
+    color: "white",
+    padding: "12px",
+    borderRadius: "12px",
+    cursor: "pointer",
+  },
+
+  messages: {
+    flex: 1,
+    overflowY: "auto",
+    display: "flex",
+    flexDirection: "column",
+    gap: "15px",
+    padding: "15px",
+    background: "#020617",
+    borderRadius: "15px",
+  },
+
+  message: {
+    maxWidth: "60%",
+    padding: "15px",
+    borderRadius: "15px",
+    color: "white",
+  },
+
+  typing: {
+    color: "#94a3b8",
+    fontStyle: "italic",
+  },
+
+  emojiBox: {
+    marginTop: "10px",
+  },
+
+  inputContainer: {
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+    marginTop: "20px",
+  },
+
+  attachBtn: {
+    background: "#0f172a",
+    color: "white",
+    border: "none",
+    padding: "14px",
+    borderRadius: "12px",
+    cursor: "pointer",
+  },
+
+  input: {
+    flex: 1,
+    padding: "14px",
+    borderRadius: "12px",
+    border: "1px solid #334155",
+    background: "#0f172a",
+    color: "white",
+    outline: "none",
+  },
+
+  sendBtn: {
+    background: "#2563eb",
+    color: "white",
+    border: "none",
+    padding: "14px 18px",
+    borderRadius: "12px",
+    cursor: "pointer",
   },
 };
