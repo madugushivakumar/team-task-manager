@@ -1,100 +1,137 @@
-import { useEffect, useState, useContext } from "react";
+import { useEffect, useState } from "react";
 import API from "../api/axios";
 import Navbar from "../components/Navbar";
 import Sidebar from "../components/Sidebar";
-import ProjectCard from "../components/ProjectCard";
-import { AuthContext } from "../context/AuthContext";
-import { useNavigate } from "react-router-dom";
 
 const ProjectPage = () => {
-  const { user } = useContext(AuthContext);
-  const navigate = useNavigate();
-
   const [projects, setProjects] = useState([]);
-  const [users, setUsers] = useState([]);
 
   const [form, setForm] = useState({
     title: "",
     description: "",
-    teamMembers: [],
+    members: "",
   });
 
-  const [loading, setLoading] = useState(false);
+  // 🔥 EDIT MODE
+  const [editingId, setEditingId] = useState(null);
 
-  // =============================
-  // FETCH DATA
-  // =============================
+  // ==============================
+  // FETCH PROJECTS
+  // ==============================
   const fetchProjects = async () => {
     try {
       const res = await API.get("/projects");
       setProjects(res.data);
-    } catch (err) {
-      console.error("Error fetching projects:", err);
-    }
-  };
 
-  const fetchUsers = async () => {
-    try {
-      const res = await API.get("/users");
-      setUsers(res.data);
-    } catch (err) {
-      console.error("Error fetching users:", err);
+    } catch (error) {
+      console.error("Fetch projects error:", error);
     }
   };
 
   useEffect(() => {
     fetchProjects();
-    fetchUsers();
   }, []);
 
-  // =============================
-  // HANDLE FORM
-  // =============================
+  // ==============================
+  // HANDLE CHANGE
+  // ==============================
   const handleChange = (e) => {
-    const { name, value, selectedOptions } = e.target;
-
-    if (name === "teamMembers") {
-      const values = Array.from(selectedOptions, (opt) => opt.value);
-      setForm({ ...form, teamMembers: values });
-    } else {
-      setForm({ ...form, [name]: value });
-    }
+    setForm({
+      ...form,
+      [e.target.name]: e.target.value,
+    });
   };
 
-  const handleCreate = async (e) => {
+  // ==============================
+  // CREATE / UPDATE PROJECT
+  // ==============================
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     try {
-      setLoading(true);
+      const payload = {
+        title: form.title,
+        description: form.description,
+        members: form.members
+          .split(",")
+          .map((m) => m.trim()),
+      };
 
-      const res = await API.post("/projects", form);
+      // ==============================
+      // UPDATE
+      // ==============================
+      if (editingId) {
 
-      setProjects((prev) => [...prev, res.data]);
+        await API.put(
+          `/projects/${editingId}`,
+          payload
+        );
 
+        setEditingId(null);
+
+      } else {
+
+        // ==============================
+        // CREATE
+        // ==============================
+        await API.post("/projects", payload);
+      }
+
+      // RESET FORM
       setForm({
         title: "",
         description: "",
-        teamMembers: [],
+        members: "",
       });
-    } catch (err) {
-      console.error("Error creating project:", err);
-    } finally {
-      setLoading(false);
+
+      fetchProjects();
+
+    } catch (error) {
+      console.error("Project submit error:", error);
     }
   };
 
-  // =============================
+  // ==============================
   // DELETE PROJECT
-  // =============================
-  const handleDelete = (id) => {
-    setProjects((prev) => prev.filter((p) => p._id !== id));
+  // ==============================
+  const handleDelete = async (id) => {
+
+    const confirmDelete = window.confirm(
+      "Delete this project?"
+    );
+
+    if (!confirmDelete) return;
+
+    try {
+      await API.delete(`/projects/${id}`);
+
+      fetchProjects();
+
+    } catch (error) {
+      console.error("Delete project error:", error);
+    }
   };
 
-  // =============================
-  // NAVIGATE TO TASKS
-  // =============================
-  const handleSelect = (project) => {
-    navigate(`/projects/${project._id}/tasks`);
+  // ==============================
+  // EDIT PROJECT
+  // ==============================
+  const handleEdit = (project) => {
+
+    setEditingId(project._id);
+
+    setForm({
+      title: project.title,
+      description: project.description,
+      members: project.members
+        ?.map((m) => m.name || m.email || m)
+        .join(", "),
+    });
+
+    // SCROLL TOP
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
   };
 
   return (
@@ -102,71 +139,128 @@ const ProjectPage = () => {
       <Navbar />
 
       <div style={styles.container}>
+
         <Sidebar />
 
         <div style={styles.main}>
-          <h2>Projects</h2>
 
-          {/* =============================
-              CREATE PROJECT (ADMIN ONLY)
-          ============================= */}
-          {user?.role === "Admin" && (
-            <form onSubmit={handleCreate} style={styles.form}>
-              <input
-                type="text"
-                name="title"
-                placeholder="Project Title"
-                value={form.title}
-                onChange={handleChange}
-                required
-                style={styles.input}
-              />
+          <h1 style={styles.heading}>
+            📁 Projects
+          </h1>
 
-              <input
-                type="text"
-                name="description"
-                placeholder="Description"
-                value={form.description}
-                onChange={handleChange}
-                required
-                style={styles.input}
-              />
+          {/* ==============================
+              FORM
+          ================================= */}
+          <form
+            onSubmit={handleSubmit}
+            style={styles.form}
+          >
 
-              {/* Multi Select Users */}
-              <select
-                name="teamMembers"
-                multiple
-                onChange={handleChange}
-                style={styles.select}
-              >
-                {users.map((u) => (
-                  <option key={u._id} value={u._id}>
-                    {u.name}
-                  </option>
-                ))}
-              </select>
+            <input
+              type="text"
+              name="title"
+              placeholder="Project Title"
+              value={form.title}
+              onChange={handleChange}
+              required
+              style={styles.input}
+            />
 
-              <button type="submit" disabled={loading}>
-                {loading ? "Creating..." : "Create Project"}
-              </button>
-            </form>
-          )}
+            <textarea
+              name="description"
+              placeholder="Description"
+              value={form.description}
+              onChange={handleChange}
+              required
+              style={styles.textarea}
+            />
 
-          {/* =============================
+            <textarea
+              name="members"
+              placeholder="Members emails separated by commas"
+              value={form.members}
+              onChange={handleChange}
+              style={styles.textarea}
+            />
+
+            <button
+              type="submit"
+              style={styles.button}
+            >
+              {editingId
+                ? "Update Project"
+                : "Create Project"}
+            </button>
+
+          </form>
+
+          {/* ==============================
               PROJECT LIST
-          ============================= */}
-          {projects.length === 0 ? (
-            <p>No projects found</p>
-          ) : (
-            projects.map((project) => (
-              <ProjectCard
-                key={project._id}
-                project={project}
-                onDelete={handleDelete}
-                onSelect={handleSelect}
-              />
-            ))
-          )}
+          ================================= */}
+          <div style={styles.projectList}>
+
+            {projects.length === 0 ? (
+              <p>No projects found</p>
+            ) : (
+              projects.map((project) => (
+
+                <div
+                  key={project._id}
+                  style={styles.projectCard}
+                >
+
+                  <h3>{project.title}</h3>
+
+                  <p>
+                    {project.description}
+                  </p>
+
+                  {/* MEMBERS */}
+                  <div style={styles.members}>
+                    👥 Members:
+                    {project.members?.length > 0 ? (
+                      project.members.map((m, index) => (
+                        <span
+                          key={m._id || index}
+                          style={styles.memberTag}
+                        >
+                          {m.name || m.email}
+                        </span>
+                      ))
+                    ) : (
+                      <span> No members</span>
+                    )}
+                  </div>
+
+                  {/* ACTION BUTTONS */}
+                  <div style={styles.actions}>
+
+                    <button
+                      onClick={() =>
+                        handleEdit(project)
+                      }
+                      style={styles.editBtn}
+                    >
+                      ✏ Edit
+                    </button>
+
+                    <button
+                      onClick={() =>
+                        handleDelete(project._id)
+                      }
+                      style={styles.deleteBtn}
+                    >
+                      🗑 Delete
+                    </button>
+
+                  </div>
+
+                </div>
+              ))
+            )}
+
+          </div>
+
         </div>
       </div>
     </>
@@ -175,7 +269,7 @@ const ProjectPage = () => {
 
 export default ProjectPage;
 
-/* ===============================
+/* ==============================
    STYLES
 ================================= */
 
@@ -183,29 +277,105 @@ const styles = {
   container: {
     display: "flex",
   },
+
   main: {
     flex: 1,
-    padding: "20px",
-    backgroundColor: "#020617",
+    padding: "25px",
+    background: "var(--bg)",
     minHeight: "100vh",
-    color: "white",
+    color: "var(--text)",
   },
+
+  heading: {
+    marginBottom: "20px",
+  },
+
   form: {
+    background: "var(--card)",
+    padding: "20px",
+    borderRadius: "12px",
     display: "flex",
     flexDirection: "column",
-    gap: "10px",
-    marginBottom: "20px",
-    backgroundColor: "#1e293b",
-    padding: "15px",
-    borderRadius: "10px",
+    gap: "15px",
+    marginBottom: "30px",
   },
+
   input: {
-    padding: "8px",
-    borderRadius: "5px",
-    border: "none",
+    padding: "12px",
+    borderRadius: "8px",
+    border: "1px solid #334155",
+    background: "#0f172a",
+    color: "white",
   },
-  select: {
-    padding: "8px",
-    borderRadius: "5px",
+
+  textarea: {
+    padding: "12px",
+    borderRadius: "8px",
+    border: "1px solid #334155",
+    background: "#0f172a",
+    color: "white",
+    minHeight: "100px",
+  },
+
+  button: {
+    padding: "12px",
+    border: "none",
+    borderRadius: "8px",
+    background: "#2563eb",
+    color: "white",
+    fontWeight: "bold",
+    cursor: "pointer",
+  },
+
+  projectList: {
+    display: "grid",
+    gap: "20px",
+  },
+
+  projectCard: {
+    background: "var(--card)",
+    padding: "20px",
+    borderRadius: "12px",
+    boxShadow: "0 4px 10px rgba(0,0,0,0.2)",
+  },
+
+  members: {
+    marginTop: "15px",
+    display: "flex",
+    gap: "10px",
+    flexWrap: "wrap",
+    alignItems: "center",
+  },
+
+  memberTag: {
+    background: "#2563eb",
+    padding: "5px 10px",
+    borderRadius: "999px",
+    fontSize: "13px",
+    color: "white",
+  },
+
+  actions: {
+    marginTop: "20px",
+    display: "flex",
+    gap: "10px",
+  },
+
+  editBtn: {
+    padding: "10px 15px",
+    border: "none",
+    borderRadius: "8px",
+    background: "#f59e0b",
+    color: "white",
+    cursor: "pointer",
+  },
+
+  deleteBtn: {
+    padding: "10px 15px",
+    border: "none",
+    borderRadius: "8px",
+    background: "#ef4444",
+    color: "white",
+    cursor: "pointer",
   },
 };

@@ -2,7 +2,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import { useContext } from "react";
 import { AuthContext } from "./context/AuthContext";
 import Home from "./pages/Home";
-
+import ChatPage from "./pages/ChatPage";
 
 // Pages
 import Login from "./pages/Login";
@@ -70,8 +70,16 @@ const AppRoutes = () => {
             <TaskPage />
           </PrivateRoute>
         }
+        
       />
-
+      <Route
+  path="/chat"
+  element={
+    <PrivateRoute>
+      <ChatPage />
+    </PrivateRoute>
+  }
+/>
       {/* Catch All */}
       <Route path="*" element={<Navigate to="/" />} />
     </Routes>

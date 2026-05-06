@@ -6,63 +6,183 @@ const Chat = ({ projectId, user }) => {
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState("");
 
-  // Load old messages
+  // ==============================
+  // LOAD OLD MESSAGES
+  // ==============================
   useEffect(() => {
     const loadMessages = async () => {
-      const res = await API.get(`/api/messages/${projectId}`);
-      setMessages(res.data);
+      try {
+        const res = await API.get(`/messages/${projectId}`);
+        setMessages(res.data);
+      } catch (error) {
+        console.error("Load messages error:", error);
+      }
     };
-    loadMessages();
+
+    if (projectId) {
+      loadMessages();
+    }
   }, [projectId]);
 
-  // Join room
+  // ==============================
+  // JOIN ROOM
+  // ==============================
   useEffect(() => {
-    socket.emit("joinProject", projectId);
+    if (projectId) {
+      socket.emit("joinProject", projectId);
+    }
   }, [projectId]);
 
-  // Listen for messages
+  // ==============================
+  // RECEIVE MESSAGES
+  // ==============================
   useEffect(() => {
-    socket.on("receiveMessage", (msg) => {
+    const handleReceiveMessage = (msg) => {
       setMessages((prev) => [...prev, msg]);
-    });
+    };
 
-    return () => socket.off("receiveMessage");
+    socket.on("receiveMessage", handleReceiveMessage);
+
+    return () => {
+      socket.off("receiveMessage", handleReceiveMessage);
+    };
   }, []);
 
-  // Send message
+  // ==============================
+  // SEND MESSAGE
+  // ==============================
   const sendMessage = () => {
-    if (!text.trim()) return;
 
-    socket.emit("sendMessage", {
-      senderId: user._id,
-      projectId,
-      content: text,
-    });
+  if (!text.trim()) return;
 
-    setText("");
-  };
+  // ✅ USER SAFETY CHECK
+  if (!user || !user._id) {
+    console.error("User not found");
+    return;
+  }
+
+  socket.emit("sendMessage", {
+    senderId: user._id,
+    projectId,
+    content: text,
+  });
+
+  setText("");
+};
 
   return (
-    <div>
-      <h3>💬 Project Chat</h3>
+    <div style={styles.container}>
+      <h3 style={styles.heading}>💬 Project Chat</h3>
 
-      <div style={{ maxHeight: "300px", overflowY: "auto" }}>
+      {/* Messages */}
+      <div style={styles.messages}>
         {messages.map((m) => (
-          <div key={m._id}>
-            <strong>{m.sender?.name}:</strong> {m.content}
-          </div>
+         <div
+  key={m._id}
+  style={{
+    ...styles.message,
+
+    alignSelf:
+      m.sender?._id === user?._id
+        ? "flex-end"
+        : "flex-start",
+
+    background:
+      m.sender?._id === user?._id
+        ? "#2563eb"
+        : "#1e293b",
+  }}
+>
+  <strong>
+    {m.sender?.name}
+  </strong>
+
+  <p style={{ marginTop: "5px" }}>
+    {m.content}
+  </p>
+</div>
         ))}
       </div>
 
-      <input
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        placeholder="Type message..."
-      />
+      {/* Input */}
+      <div style={styles.inputContainer}>
+        <input
+          type="text"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder="Type message..."
+          style={styles.input}
+        />
 
-      <button onClick={sendMessage}>Send</button>
+        <button
+  onClick={sendMessage}
+  style={styles.button}
+  disabled={!user}
+>
+  Send
+</button>
+      </div>
     </div>
   );
 };
 
 export default Chat;
+
+/* ==============================
+   STYLES
+================================= */
+
+const styles = {
+  container: {
+    marginTop: "30px",
+    background: "var(--card)",
+    padding: "20px",
+    borderRadius: "10px",
+  },
+
+  heading: {
+    marginBottom: "15px",
+  },
+
+ messages: {
+  maxHeight: "400px",
+  overflowY: "auto",
+  background: "#0f172a",
+  padding: "15px",
+  borderRadius: "8px",
+  marginBottom: "15px",
+
+  display: "flex",
+  flexDirection: "column",
+  gap: "10px",
+},
+
+ message: {
+  padding: "12px",
+  borderRadius: "12px",
+  color: "white",
+  maxWidth: "70%",
+  wordBreak: "break-word",
+},
+
+  inputContainer: {
+    display: "flex",
+    gap: "10px",
+  },
+
+  input: {
+    flex: 1,
+    padding: "10px",
+    borderRadius: "6px",
+    border: "1px solid #334155",
+  },
+
+  button: {
+    padding: "10px 20px",
+    border: "none",
+    borderRadius: "6px",
+    background: "#2563eb",
+    color: "white",
+    cursor: "pointer",
+  },
+};

@@ -37,10 +37,17 @@ const Signup = () => {
       const res = await API.post("/auth/signup", form);
 
       // Save token
-      localStorage.setItem("token", res.data.token);
+    // Save token
+localStorage.setItem("token", res.data.token);
 
-      // Save user
-      setUser(res.data.user);
+// ✅ SAVE USER ALSO
+localStorage.setItem(
+  "user",
+  JSON.stringify(res.data.user)
+);
+
+// Save user in context
+setUser(res.data.user);
 
       // Redirect
       navigate("/dashboard");

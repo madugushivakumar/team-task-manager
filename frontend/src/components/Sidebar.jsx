@@ -45,6 +45,16 @@ const Sidebar = () => {
           >
             📝 Manage Tasks
           </Link>
+          <Link
+      to="/chat"
+      style={{
+        ...styles.link,
+        ...(isActive("/chat") && styles.active),
+      }}
+    >
+      💬 Team Chat
+    </Link>
+
         </>
       )}
 

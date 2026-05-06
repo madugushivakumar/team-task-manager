@@ -15,7 +15,7 @@ const Home = () => {
       
       {/* NAVBAR */}
       <div style={styles.nav}>
-        <h2>🚀 Team Task Manager</h2>
+        <h2> Team Task Manager</h2>
         <div>
              <ThemeToggle />
           <Link to="/login" style={styles.link}>Login</Link>
@@ -32,7 +32,7 @@ const Home = () => {
         variants={fadeUp}
       >
         <h1 style={styles.heroTitle}>
-          Manage Work Like a Pro 🚀
+          Manage Work Like a Pro 
         </h1>
 
         <p style={styles.heroText}>
@@ -42,7 +42,7 @@ const Home = () => {
 
         <div style={styles.heroButtons}>
           <Link to="/signup" style={styles.ctaPrimary}>
-            Start Free 🚀
+            Start Free 
           </Link>
 
           <Link to="/login" style={styles.ctaSecondary}>
@@ -126,7 +126,7 @@ const Home = () => {
         <h2>Ready to boost productivity?</h2>
 
         <Link to="/signup" style={styles.ctaBig}>
-          Get Started Now 🚀
+          Get Started Now 
         </Link>
       </motion.div>
 

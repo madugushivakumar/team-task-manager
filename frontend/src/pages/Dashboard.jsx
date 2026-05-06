@@ -1,21 +1,34 @@
 import { useEffect, useState } from "react";
 import API from "../api/axios";
+
 import Navbar from "../components/Navbar";
 import Sidebar from "../components/Sidebar";
 import TaskCard from "../components/TaskCard";
 import SkeletonLoader from "../components/SkeletonLoader";
+import Chat from "../components/Chat";
+
+// ==============================
+// GET USER
+// ==============================
+const user =
+  JSON.parse(localStorage.getItem("user")) || null;
 
 const Dashboard = () => {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Fetch all tasks
+  // ==============================
+  // FETCH TASKS
+  // ==============================
   const fetchTasks = async () => {
     try {
       const res = await API.get("/tasks");
+
       setTasks(res.data);
+
     } catch (error) {
       console.error("Error fetching tasks:", error);
+
     } finally {
       setLoading(false);
     }
@@ -25,56 +38,109 @@ const Dashboard = () => {
     fetchTasks();
   }, []);
 
-  // 🔥 Stats calculation
+  // ==============================
+  // STATS
+  // ==============================
   const total = tasks.length;
-  const completed = tasks.filter(t => t.status === "Completed").length;
-  const pending = tasks.filter(t => t.status === "Pending").length;
-  const inProgress = tasks.filter(t => t.status === "In Progress").length;
+
+  const completed = tasks.filter(
+    (t) => t.status === "Completed"
+  ).length;
+
+  const pending = tasks.filter(
+    (t) => t.status === "Pending"
+  ).length;
+
+  const inProgress = tasks.filter(
+    (t) => t.status === "In Progress"
+  ).length;
 
   const overdue = tasks.filter(
-    t =>
+    (t) =>
       t.dueDate &&
       new Date(t.dueDate) < new Date() &&
       t.status !== "Completed"
   ).length;
 
-  // 🔥 Progress %
+  // ==============================
+  // PROGRESS %
+  // ==============================
   const progress =
-    total === 0 ? 0 : Math.round((completed / total) * 100);
+    total === 0
+      ? 0
+      : Math.round((completed / total) * 100);
 
-  // Handle task update
+  // ==============================
+  // UPDATE TASK
+  // ==============================
   const handleUpdate = (updatedTask) => {
-    setTasks(prev =>
-      prev.map(t => (t._id === updatedTask._id ? updatedTask : t))
+    setTasks((prev) =>
+      prev.map((t) =>
+        t._id === updatedTask._id
+          ? updatedTask
+          : t
+      )
     );
   };
 
   return (
     <>
+      {/* NAVBAR */}
       <Navbar />
 
       <div style={styles.container}>
+        
+        {/* SIDEBAR */}
         <Sidebar />
 
+        {/* MAIN CONTENT */}
         <div style={styles.main}>
-          <h2 style={styles.heading}>📊 Dashboard</h2>
+          
+          <h2 style={styles.heading}>
+            📊 Dashboard
+          </h2>
 
+          {/* ==============================
+              LOADING
+          ================================= */}
           {loading ? (
-            <p>Loading...</p>
+            <SkeletonLoader />
           ) : (
             <>
-              {/* 🔥 Stats Cards */}
+              {/* ==============================
+                  STATS CARDS
+              ================================= */}
               <div style={styles.statsContainer}>
-                <div style={styles.card}>📊 Total: {total}</div>
-                <div style={styles.card}>✅ Completed: {completed}</div>
-                <div style={styles.card}>⏳ Pending: {pending}</div>
-                <div style={styles.card}>🚧 In Progress: {inProgress}</div>
-                <div style={styles.overdueCard}>⚠ Overdue: {overdue}</div>
+
+                <div style={styles.card}>
+                  📊 Total Tasks: {total}
+                </div>
+
+                <div style={styles.card}>
+                  ✅ Completed: {completed}
+                </div>
+
+                <div style={styles.card}>
+                  ⏳ Pending: {pending}
+                </div>
+
+                <div style={styles.card}>
+                  🚧 In Progress: {inProgress}
+                </div>
+
+                <div style={styles.overdueCard}>
+                  ⚠ Overdue: {overdue}
+                </div>
+
               </div>
 
-              {/* 🔥 Progress Bar */}
+              {/* ==============================
+                  PROGRESS BAR
+              ================================= */}
               <div style={styles.progressSection}>
-                <h3>Project Progress</h3>
+
+                <h3>📈 Project Progress</h3>
+
                 <div style={styles.progressBar}>
                   <div
                     style={{
@@ -83,22 +149,43 @@ const Dashboard = () => {
                     }}
                   />
                 </div>
-                <p>{progress}% completed</p>
+
+                <p style={styles.progressText}>
+                  {progress}% completed
+                </p>
+
               </div>
 
-              {/* Task List */}
-              <h3 style={styles.subheading}>Your Tasks</h3>
+              {/* ==============================
+                  TASK LIST
+              ================================= */}
+              <h3 style={styles.subheading}>
+                📋 Your Tasks
+              </h3>
 
               {tasks.length === 0 ? (
                 <p>No tasks found</p>
               ) : (
-                tasks.map(task => (
+                tasks.map((task) => (
                   <TaskCard
                     key={task._id}
                     task={task}
                     onUpdate={handleUpdate}
                   />
                 ))
+              )}
+
+              {/* ==============================
+                  REAL-TIME PROJECT CHAT
+              ================================= */}
+              {tasks.length > 0 && (
+                <Chat
+                  projectId={
+                    tasks[0]?.projectId?._id ||
+                    tasks[0]?.projectId
+                  }
+                  user={user}
+                />
               )}
             </>
           )}
@@ -110,7 +197,7 @@ const Dashboard = () => {
 
 export default Dashboard;
 
-/* ===============================
+/* ==============================
    STYLES
 ================================= */
 
@@ -118,51 +205,82 @@ const styles = {
   container: {
     display: "flex",
   },
+
   main: {
     flex: 1,
     padding: "20px",
-    backgroundColor: "#020617",
+    background: "var(--bg)",
     minHeight: "100vh",
-    color: "white",
-  },
-  heading: {
-    marginBottom: "20px",
-  },
-  subheading: {
-    marginTop: "20px",
-    marginBottom: "10px",
-  },
-  statsContainer: {
-    display: "flex",
-    gap: "10px",
-    flexWrap: "wrap",
-  },
-  card: {
-    backgroundColor: "#1e293b",
-    padding: "12px",
-    borderRadius: "8px",
-    minWidth: "150px",
-  },
-  overdueCard: {
-    backgroundColor: "#7f1d1d",
-    padding: "12px",
-    borderRadius: "8px",
-    minWidth: "150px",
+    color: "var(--text)",
+    transition: "0.3s",
   },
 
-  // 🔥 NEW STYLES
+  heading: {
+    marginBottom: "20px",
+    fontSize: "28px",
+    fontWeight: "bold",
+  },
+
+  subheading: {
+    marginTop: "30px",
+    marginBottom: "15px",
+    fontSize: "22px",
+  },
+
+  // ==============================
+  // STATS
+  // ==============================
+  statsContainer: {
+    display: "flex",
+    gap: "15px",
+    flexWrap: "wrap",
+  },
+
+  card: {
+    background: "var(--card)",
+    padding: "15px",
+    borderRadius: "12px",
+    minWidth: "180px",
+    boxShadow: "0 4px 10px rgba(0,0,0,0.2)",
+    transition: "0.3s",
+  },
+
+  overdueCard: {
+    background: "#7f1d1d",
+    padding: "15px",
+    borderRadius: "12px",
+    minWidth: "180px",
+    color: "white",
+    boxShadow: "0 4px 10px rgba(0,0,0,0.2)",
+  },
+
+  // ==============================
+  // PROGRESS
+  // ==============================
   progressSection: {
-    marginTop: "25px",
+    marginTop: "30px",
+    background: "var(--card)",
+    padding: "20px",
+    borderRadius: "12px",
   },
+
   progressBar: {
-    height: "20px",
-    backgroundColor: "#334155",
-    borderRadius: "10px",
+    height: "22px",
+    background: "#334155",
+    borderRadius: "999px",
     overflow: "hidden",
-    marginTop: "10px",
+    marginTop: "12px",
   },
+
   progressFill: {
     height: "100%",
-    backgroundColor: "#22c55e",
+    background: "#22c55e",
+    borderRadius: "999px",
+    transition: "width 0.5s ease",
+  },
+
+  progressText: {
+    marginTop: "10px",
+    fontWeight: "bold",
   },
 };
